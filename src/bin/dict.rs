@@ -52,7 +52,7 @@ fn filter(
     map_e_yo: bool,
     lower: bool,
 ) -> Result<()> {
-    for line in r.lines() {
+    'outer: for line in r.lines() {
         let chars: Vec<_> = line?.chars().take(filter_len + 1).collect();
         if chars.len() != filter_len {
             continue;
@@ -75,7 +75,12 @@ fn filter(
                 c
             };
             let c = if lower {
-                c.to_lowercase().next().unwrap()
+                let mut c_it = c.to_lowercase();
+                let c = c_it.next().unwrap_or_else(|| unreachable!());
+                match c_it.next() {
+                    None => c,
+                    _ => continue 'outer,
+                }
             } else {
                 c
             };
