@@ -15,10 +15,13 @@ struct Cli {
     /// Word length
     #[arg(short, long, default_value_t = 5)]
     length: usize,
+    /// Map cyrillic yo to e
     #[arg(short, long, default_value_t = true)]
     map_e_yo: bool,
+    /// Convert to lower
     #[arg(short, long, default_value_t = true)]
     to_lower: bool,
+    /// Only words with cyrillic chars
     #[arg(short, long, default_value_t = true)]
     cyrillic: bool,
 }
@@ -27,14 +30,14 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     {
         let stdin = io::stdin();
-        let stdout = io::stdout();
         let stdin = stdin.lock();
-        let mut buf_stdin = BufReader::new(stdin);
+        let mut stdin = BufReader::new(stdin);
+        let stdout = io::stdout();
         let stdout = stdout.lock();
-        let mut buf_stdout = BufWriter::new(stdout);
+        let mut stdout = BufWriter::new(stdout);
         filter(
-            &mut buf_stdin,
-            &mut buf_stdout,
+            &mut stdin,
+            &mut stdout,
             cli.length,
             cli.cyrillic,
             cli.map_e_yo,
@@ -97,27 +100,182 @@ mod tests {
     use std::io::Cursor;
 
     #[test]
-    fn filter_dict() {
-        let dict = "\
-        \n\
-        1\n\
-        1\n\
-        22\n\
-        22\n\
-        333\n\
-        4444\n\
-        55555\n\
-        666666\n\
-        first\n\
-        Сазан\n\
-        взлёт\n\
-        55555\
-        ";
+    fn filter_dict_default() {
+        filter_and_test(
+            "\
+            \n\
+            1\n\
+            1\n\
+            22\n\
+            22\n\
+            333\n\
+            4444\n\
+            55555\n\
+            666666\n\
+            first\n\
+            Сазан\n\
+            взлёт\n\
+            55555\
+            ",
+            "сазан\nвзлет\n",
+            5,
+            true,
+            true,
+            true,
+        );
+    }
+
+    #[test]
+    fn filter_dict_5() {
+        filter_and_test(
+            "\
+            \n\
+            1\n\
+            1\n\
+            22\n\
+            22\n\
+            333\n\
+            4444\n\
+            55555\n\
+            666666\n\
+            first\n\
+            Сазан\n\
+            взлёт\n\
+            55555\
+            ",
+            "55555\nfirst\nСазан\nвзлёт\n55555\n",
+            5,
+            false,
+            false,
+            false,
+        );
+    }
+
+    #[test]
+    fn filter_dict_4() {
+        filter_and_test(
+            "\
+            \n\
+            1\n\
+            1\n\
+            22\n\
+            22\n\
+            333\n\
+            4444\n\
+            55555\n\
+            666666\n\
+            first\n\
+            Сазан\n\
+            взлёт\n\
+            55555\
+            ",
+            "4444\n",
+            4,
+            false,
+            false,
+            false,
+        );
+    }
+
+    #[test]
+    fn filter_dict_5_cyr() {
+        filter_and_test(
+            "\
+            \n\
+            1\n\
+            1\n\
+            22\n\
+            22\n\
+            333\n\
+            4444\n\
+            55555\n\
+            666666\n\
+            first\n\
+            Сазан\n\
+            взлёт\n\
+            55555\
+            ",
+            "Сазан\nвзлёт\n",
+            5,
+            true,
+            false,
+            false,
+        );
+    }
+
+    #[test]
+    fn filter_dict_5_e_yo() {
+        filter_and_test(
+            "\
+            \n\
+            1\n\
+            1\n\
+            22\n\
+            22\n\
+            333\n\
+            4444\n\
+            55555\n\
+            666666\n\
+            first\n\
+            Сазан\n\
+            взлёт\n\
+            55555\
+            ",
+            "55555\nfirst\nСазан\nвзлет\n55555\n",
+            5,
+            false,
+            true,
+            false,
+        );
+    }
+
+    #[test]
+    fn filter_dict_5_lower() {
+        filter_and_test(
+            "\
+            \n\
+            1\n\
+            1\n\
+            22\n\
+            22\n\
+            333\n\
+            4444\n\
+            55555\n\
+            666666\n\
+            first\n\
+            Сазан\n\
+            взлёт\n\
+            55555\
+            ",
+            "55555\nfirst\nсазан\nвзлёт\n55555\n",
+            5,
+            false,
+            false,
+            true,
+        );
+    }
+
+    fn filter_and_test(
+        dict: &str,
+        expected: &str,
+        filter_len: usize,
+        cyrillic: bool,
+        map_e_yo: bool,
+        lower: bool,
+    ) {
         let mut out = Vec::new();
         {
             let mut buf_out = BufWriter::new(&mut out);
-            filter(&mut Cursor::new(dict), &mut buf_out, 5, true, true, true).unwrap();
+            filter(
+                &mut Cursor::new(dict),
+                &mut buf_out,
+                filter_len,
+                cyrillic,
+                map_e_yo,
+                lower,
+            )
+            .unwrap();
         }
-        assert_eq!(String::from_utf8(out).unwrap(), "сазан\nвзлет\n");
+        assert_eq!(String::from_utf8(out).unwrap(), expected);
     }
 }
