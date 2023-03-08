@@ -4,4 +4,9 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.67.1"
 
+[[bin]]
+name = "dict"
+
 [dependencies]
+anyhow = "1"
+clap = { version = "4", features = [ "derive", "unicode" ] }
