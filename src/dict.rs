@@ -46,15 +46,21 @@ mod tests {
     }
 
     #[test]
-    fn char_stat_contains_all_letters() {
+    fn char_stat() {
         let dict = Dict::default();
-        let mut stat = Dict::char_stat(dict.words.iter().copied());
+        let stat = Dict::char_stat(dict.words.iter().copied());
 
         let mut stat_v: Vec<_> = stat.iter().collect();
         stat_v.sort_unstable_by(|(a_char, a_cnt), (b_char, b_cnt)| {
             a_cnt.cmp(b_cnt).reverse().then(a_char.cmp(b_char))
         });
         println!("{stat_v:?}");
+    }
+
+    #[test]
+    fn word_stat() {
+        let dict = Dict::default();
+        let stat = Dict::char_stat(dict.words.iter().copied());
 
         let mut word_score: Vec<_> = dict
             .words
@@ -73,6 +79,12 @@ mod tests {
             a_score.cmp(b_score).reverse().then(a_word.cmp(b_word))
         });
         println!("{:?}", word_score.iter().take(20).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn char_stat_contains_all_letters() {
+        let dict = Dict::default();
+        let mut stat = Dict::char_stat(dict.words.iter().copied());
 
         for ch in 'а'..='я' {
             assert!(matches!(stat.get(&ch), Some(&n) if n > 0));
