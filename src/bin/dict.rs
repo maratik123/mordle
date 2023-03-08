@@ -69,7 +69,7 @@ fn filter(
         {
             continue;
         }
-        let mut s = String::with_capacity(chars.len());
+        let mut s = String::with_capacity(chars.iter().map(|c| c.len_utf8()).sum());
         for c in chars {
             let c = if map_e_yo {
                 match c {
