@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use std::{
+    collections::BTreeSet,
     io,
     io::{BufRead, BufReader, BufWriter, Write},
 };
@@ -55,6 +56,7 @@ fn filter(
     map_e_yo: bool,
     lower: bool,
 ) -> Result<()> {
+    let mut result = BTreeSet::new();
     'outer: for line in r.lines() {
         let chars: Vec<_> = line?.chars().take(filter_len + 1).collect();
         if chars.len() != filter_len {
@@ -67,6 +69,7 @@ fn filter(
         {
             continue;
         }
+        let mut s = String::with_capacity(chars.len());
         for c in chars {
             let c = if map_e_yo {
                 match c {
@@ -87,9 +90,12 @@ fn filter(
             } else {
                 c
             };
-            write!(w, "{c}")?;
+            s.push(c);
         }
-        writeln!(w)?;
+        result.insert(s);
+    }
+    for line in result {
+        writeln!(w, "{line}")?;
     }
     Ok(())
 }
@@ -117,7 +123,7 @@ mod tests {
             взлёт\n\
             55555\
             ",
-            "сазан\nвзлет\n",
+            "взлет\nсазан\n",
             5,
             true,
             true,
@@ -143,7 +149,7 @@ mod tests {
             взлёт\n\
             55555\
             ",
-            "55555\nfirst\nСазан\nвзлёт\n55555\n",
+            "55555\nfirst\nСазан\nвзлёт\n",
             5,
             false,
             false,
@@ -221,7 +227,7 @@ mod tests {
             взлёт\n\
             55555\
             ",
-            "55555\nfirst\nСазан\nвзлет\n55555\n",
+            "55555\nfirst\nСазан\nвзлет\n",
             5,
             false,
             true,
@@ -247,7 +253,7 @@ mod tests {
             взлёт\n\
             55555\
             ",
-            "55555\nfirst\nсазан\nвзлёт\n55555\n",
+            "55555\nfirst\nвзлёт\nсазан\n",
             5,
             false,
             false,
