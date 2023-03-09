@@ -50,7 +50,7 @@ mod tests {
         let dict = Dict::default();
         let stat = Dict::char_stat(dict.words.iter().copied());
 
-        let mut stat_v: Vec<_> = stat.iter().collect();
+        let mut stat_v: Vec<_> = stat.iter().map(|(&c, &u)| (c, u)).collect();
         stat_v.sort_unstable_by(|(a_char, a_cnt), (b_char, b_cnt)| {
             a_cnt.cmp(b_cnt).reverse().then(a_char.cmp(b_char))
         });
@@ -65,10 +65,10 @@ mod tests {
         let mut word_score: Vec<_> = dict
             .words
             .iter()
-            .map(|word| (word, word.chars().collect::<Vec<_>>()))
+            .map(|&word| (word, word.chars().collect::<Vec<_>>()))
             .filter(|(_, chars)| {
                 let mut found_chars = HashSet::with_capacity(chars.len());
-                chars.iter().all(|c| found_chars.insert(c))
+                chars.iter().all(|&c| found_chars.insert(c))
             })
             .map(|(word, chars)| {
                 let score: usize = chars.iter().filter_map(|ch| stat.get(ch)).sum();
@@ -78,7 +78,10 @@ mod tests {
         word_score.sort_unstable_by(|(a_word, a_score), (b_word, b_score)| {
             a_score.cmp(b_score).reverse().then(a_word.cmp(b_word))
         });
-        println!("{:?}", word_score.iter().take(20).collect::<Vec<_>>());
+        println!(
+            "{:?}",
+            word_score.iter().copied().take(20).collect::<Vec<_>>()
+        );
     }
 
     #[test]
