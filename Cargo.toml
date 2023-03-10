@@ -2,11 +2,11 @@
 name = "mordle"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.67.1"
+rust-version = "1.68.0"
 
 [[bin]]
 name = "dict"
 
 [dependencies]
 anyhow = "1"
-clap = { version = "4", features = [ "derive", "unicode" ] }
+clap = { version = "4", features = [ "derive" ] }

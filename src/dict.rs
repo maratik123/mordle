@@ -2,17 +2,55 @@ use std::collections::{HashMap, HashSet};
 
 const DICT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/mordle-dict.txt"));
 
+#[derive(Copy, Clone, Hash, Eq, PartialEq)]
+struct CharPos(usize);
+#[derive(Copy, Clone, Hash, Eq, PartialEq)]
+struct WordIndex(usize);
+
 pub struct Dict {
     words: Vec<&'static str>,
     words_set: HashSet<&'static str>,
+    global_char_index: HashMap<char, HashSet<WordIndex>>,
+    char_at_pos_index: HashMap<(CharPos, char), HashSet<WordIndex>>,
 }
 
 impl Default for Dict {
     fn default() -> Self {
         let mut words: Vec<_> = DICT.lines().collect();
         words.sort_unstable();
+
         let words_set: HashSet<_> = words.iter().copied().collect();
-        Self { words, words_set }
+
+        let (global_char_index, char_at_pos_index) = words
+            .iter()
+            .enumerate()
+            .map(|(index, word)| (WordIndex(index), word))
+            .flat_map(|(index, word)| {
+                word.chars()
+                    .enumerate()
+                    .map(move |(pos, ch)| (index, CharPos(pos), ch))
+            })
+            .fold(
+                (HashMap::new(), HashMap::new()),
+                |(mut global_char_index, mut char_at_pos_index), (index, pos, ch)| {
+                    global_char_index
+                        .entry(ch)
+                        .or_insert_with(HashSet::new)
+                        .insert(index);
+                    char_at_pos_index
+                        .entry((pos, ch))
+                        .or_insert_with(HashSet::new)
+                        .insert(index);
+                    (global_char_index, char_at_pos_index)
+                },
+            );
+
+        Self {
+            words,
+            words_set,
+            global_char_index,
+            char_at_pos_index,
+        }
     }
 }
 

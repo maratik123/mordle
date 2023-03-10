@@ -29,22 +29,20 @@ struct Cli {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    {
-        let stdin = io::stdin();
-        let stdin = stdin.lock();
-        let mut stdin = BufReader::new(stdin);
-        let stdout = io::stdout();
-        let stdout = stdout.lock();
-        let mut stdout = BufWriter::new(stdout);
-        filter(
-            &mut stdin,
-            &mut stdout,
-            cli.length,
-            cli.cyrillic,
-            cli.map_e_yo,
-            cli.to_lower,
-        )?;
-    }
+    let stdin = io::stdin();
+    let stdin = stdin.lock();
+    let mut stdin = BufReader::new(stdin);
+    let stdout = io::stdout();
+    let stdout = stdout.lock();
+    let mut stdout = BufWriter::new(stdout);
+    filter(
+        &mut stdin,
+        &mut stdout,
+        cli.length,
+        cli.cyrillic,
+        cli.map_e_yo,
+        cli.to_lower,
+    )?;
     Ok(())
 }
 
