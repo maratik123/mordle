@@ -69,6 +69,7 @@ impl Dict {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{cmp::Ordering, collections::BTreeMap, fmt::Debug, iter::zip};
 
     #[test]
     fn words_contains_sazan() {
@@ -93,8 +94,28 @@ mod tests {
             a_cnt.cmp(b_cnt).reverse().then(a_char.cmp(b_char))
         });
         println!("{stat_v:?}");
+
+        let mut index_size = dict
+            .global_char_index
+            .iter()
+            .map(|(&ch, set)| (ch, set.len()))
+            .collect::<Vec<_>>();
+        index_size.sort_unstable_by(|(a_char, a_cnt), (b_char, b_cnt)| {
+            a_cnt.cmp(b_cnt).reverse().then(a_char.cmp(b_char))
+        });
+        println!("{index_size:?}");
+
+        assert_eq!(stat_v.len(), index_size.len());
+        for ((s_char, s_cnt), (i_char, i_size)) in zip(
+            stat_v.iter().copied().collect::<BTreeMap<_, _>>(),
+            index_size.iter().copied().collect::<BTreeMap<_, _>>(),
+        ) {
+            assert_eq!(s_char, i_char);
+            assert!(s_cnt >= i_size);
+        }
     }
 
+    //noinspection DuplicatedCode
     #[test]
     fn word_stat() {
         let dict = Dict::default();
@@ -109,16 +130,47 @@ mod tests {
                 chars.iter().all(|&c| found_chars.insert(c))
             })
             .map(|(word, chars)| {
-                let score: usize = chars.iter().filter_map(|ch| stat.get(ch)).sum();
-                (word, score)
+                let char_count_in_words: usize = chars.iter().filter_map(|ch| stat.get(ch)).sum();
+                let words_with_char: usize = chars
+                    .iter()
+                    .filter_map(|ch| dict.global_char_index.get(ch))
+                    .map(|set| set.len())
+                    .sum();
+                (word, char_count_in_words, words_with_char)
             })
             .collect();
-        word_score.sort_unstable_by(|(a_word, a_score), (b_word, b_score)| {
-            a_score.cmp(b_score).reverse().then(a_word.cmp(b_word))
-        });
-        println!(
-            "{:?}",
-            word_score.iter().copied().take(20).collect::<Vec<_>>()
+
+        fn sort_and_print<T, F>(word_score: &mut [T], f: F)
+        where
+            T: Debug + Copy,
+            F: FnMut(&T, &T) -> Ordering,
+        {
+            word_score.sort_unstable_by(f);
+            println!(
+                "{:?}",
+                word_score.iter().copied().take(20).collect::<Vec<_>>()
+            );
+        }
+
+        sort_and_print(
+            &mut word_score,
+            |(a_word, a_char_count_in_words, a_words_with_char),
+             (b_word, b_char_count_in_words, b_words_with_char)| {
+                (a_char_count_in_words, a_words_with_char)
+                    .cmp(&(b_char_count_in_words, b_words_with_char))
+                    .reverse()
+                    .then(a_word.cmp(b_word))
+            },
+        );
+        sort_and_print(
+            &mut word_score,
+            |(a_word, a_char_count_in_words, a_words_with_char),
+             (b_word, b_char_count_in_words, b_words_with_char)| {
+                (a_words_with_char, a_char_count_in_words)
+                    .cmp(&(b_words_with_char, b_char_count_in_words))
+                    .reverse()
+                    .then(a_word.cmp(b_word))
+            },
         );
     }
 
