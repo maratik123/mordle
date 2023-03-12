@@ -7,6 +7,10 @@ rust-version = "1.68.0"
 [[bin]]
 name = "dict"
 
+[profile.release-lto]
+inherits = "release"
+lto = true
+
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = [ "derive" ] }

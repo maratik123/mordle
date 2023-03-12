@@ -103,12 +103,10 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
-    #[test]
-    fn filter_dict_default() {
-        filter_and_test(
-            "\
+    const DICT: &str = "\
             \n\
             1\n\
+            сазан\n\
             1\n\
             22\n\
             22\n\
@@ -118,36 +116,21 @@ mod tests {
             666666\n\
             first\n\
             Сазан\n\
+            взлет\n\
             взлёт\n\
             55555\
-            ",
-            "взлет\nсазан\n",
-            5,
-            true,
-            true,
-            true,
-        );
+            ";
+
+    #[test]
+    fn filter_dict_default() {
+        filter_and_test(DICT, "взлет\nсазан\n", 5, true, true, true);
     }
 
     #[test]
     fn filter_dict_5() {
         filter_and_test(
-            "\
-            \n\
-            1\n\
-            1\n\
-            22\n\
-            22\n\
-            333\n\
-            4444\n\
-            55555\n\
-            666666\n\
-            first\n\
-            Сазан\n\
-            взлёт\n\
-            55555\
-            ",
-            "55555\nfirst\nСазан\nвзлёт\n",
+            DICT,
+            "55555\nfirst\nСазан\nвзлет\nвзлёт\nсазан\n",
             5,
             false,
             false,
@@ -157,75 +140,19 @@ mod tests {
 
     #[test]
     fn filter_dict_4() {
-        filter_and_test(
-            "\
-            \n\
-            1\n\
-            1\n\
-            22\n\
-            22\n\
-            333\n\
-            4444\n\
-            55555\n\
-            666666\n\
-            first\n\
-            Сазан\n\
-            взлёт\n\
-            55555\
-            ",
-            "4444\n",
-            4,
-            false,
-            false,
-            false,
-        );
+        filter_and_test(DICT, "4444\n", 4, false, false, false);
     }
 
     #[test]
     fn filter_dict_5_cyr() {
-        filter_and_test(
-            "\
-            \n\
-            1\n\
-            1\n\
-            22\n\
-            22\n\
-            333\n\
-            4444\n\
-            55555\n\
-            666666\n\
-            first\n\
-            Сазан\n\
-            взлёт\n\
-            55555\
-            ",
-            "Сазан\nвзлёт\n",
-            5,
-            true,
-            false,
-            false,
-        );
+        filter_and_test(DICT, "Сазан\nвзлет\nвзлёт\nсазан\n", 5, true, false, false);
     }
 
     #[test]
     fn filter_dict_5_e_yo() {
         filter_and_test(
-            "\
-            \n\
-            1\n\
-            1\n\
-            22\n\
-            22\n\
-            333\n\
-            4444\n\
-            55555\n\
-            666666\n\
-            first\n\
-            Сазан\n\
-            взлёт\n\
-            55555\
-            ",
-            "55555\nfirst\nСазан\nвзлет\n",
+            DICT,
+            "55555\nfirst\nСазан\nвзлет\nсазан\n",
             5,
             false,
             true,
@@ -236,22 +163,8 @@ mod tests {
     #[test]
     fn filter_dict_5_lower() {
         filter_and_test(
-            "\
-            \n\
-            1\n\
-            1\n\
-            22\n\
-            22\n\
-            333\n\
-            4444\n\
-            55555\n\
-            666666\n\
-            first\n\
-            Сазан\n\
-            взлёт\n\
-            55555\
-            ",
-            "55555\nfirst\nвзлёт\nсазан\n",
+            DICT,
+            "55555\nfirst\nвзлет\nвзлёт\nсазан\n",
             5,
             false,
             false,
@@ -267,7 +180,7 @@ mod tests {
         map_e_yo: bool,
         lower: bool,
     ) {
-        let mut out = Vec::new();
+        let mut out = vec![];
         {
             let mut buf_out = BufWriter::new(&mut out);
             filter(

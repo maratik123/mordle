@@ -1,9 +1,8 @@
+use crate::CharPos;
 use std::collections::{HashMap, HashSet};
 
 const DICT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/mordle-dict.txt"));
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq)]
-struct CharPos(usize);
 #[derive(Copy, Clone, Hash, Eq, PartialEq)]
 struct WordIndex(usize);
 
@@ -31,15 +30,15 @@ impl Default for Dict {
                     .map(move |(pos, ch)| (index, CharPos(pos), ch))
             })
             .fold(
-                (HashMap::new(), HashMap::new()),
+                (
+                    HashMap::<_, HashSet<_>>::new(),
+                    HashMap::<_, HashSet<_>>::new(),
+                ),
                 |(mut global_char_index, mut char_at_pos_index), (index, pos, ch)| {
-                    global_char_index
-                        .entry(ch)
-                        .or_insert_with(HashSet::new)
-                        .insert(index);
+                    global_char_index.entry(ch).or_default().insert(index);
                     char_at_pos_index
                         .entry((pos, ch))
-                        .or_insert_with(HashSet::new)
+                        .or_default()
                         .insert(index);
                     (global_char_index, char_at_pos_index)
                 },
