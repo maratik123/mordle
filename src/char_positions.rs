@@ -16,20 +16,15 @@ impl From<&str> for CharPositions {
 
 impl CharPositions {
     pub fn new(word: &str) -> Self {
-        word.chars().enumerate().fold(
-            Self::default(),
-            |Self {
-                 mut index,
-                 word_len: _,
-             },
-             (pos, ch)| {
+        word.chars()
+            .enumerate()
+            .fold(Self::default(), |Self { mut index, .. }, (pos, ch)| {
                 index.entry(ch).or_default().insert(CharPos(pos));
                 Self {
                     index,
                     word_len: pos + 1,
                 }
-            },
-        )
+            })
     }
 
     pub fn remove_char_at_pos(&mut self, ch: char, pos: CharPos) {
