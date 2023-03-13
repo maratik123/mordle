@@ -1,7 +1,7 @@
 use crate::{attempt::CharResult, CharPos, CharPositions};
 use std::fmt::{Display, Formatter};
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub struct AttemptChar {
     pub ch: char,
     pub state: CharResult,
@@ -41,7 +41,7 @@ mod tests {
 
     #[test]
     fn test_char() {
-        let word_index = CharPositions::from("сазан");
+        let word_index = CharPositions::new("сазан");
         assert_eq!(
             AttemptChar::test_char(&word_index, 'а', CharPos(1)),
             AttemptChar {

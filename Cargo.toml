@@ -14,3 +14,4 @@ lto = true
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = [ "derive" ] }
+rand = "0.8"

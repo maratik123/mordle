@@ -1,9 +1,12 @@
-use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
+use std::{
+    error::Error,
+    fmt::{Debug, Display, Formatter},
+};
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum AttemptError {
     InputLengthMismatch,
+    WordNotInDict,
 }
 
 impl Display for AttemptError {
@@ -12,7 +15,8 @@ impl Display for AttemptError {
             f,
             "{}",
             match self {
-                AttemptError::InputLengthMismatch => "Input string length not matched to word",
+                Self::InputLengthMismatch => "Input string length not matched to word",
+                Self::WordNotInDict => "Word not in dictionary",
             }
         )
     }

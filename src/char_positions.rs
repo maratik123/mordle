@@ -1,7 +1,7 @@
 use crate::CharPos;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Clone, Default)]
 pub struct CharPositions {
     index: HashMap<char, HashSet<CharPos>>,
     word_len: usize,
@@ -15,12 +15,9 @@ impl From<&str> for CharPositions {
 }
 
 impl CharPositions {
-    fn new(word: &str) -> Self {
+    pub fn new(word: &str) -> Self {
         word.chars().enumerate().fold(
-            Self {
-                index: HashMap::new(),
-                word_len: Default::default(),
-            },
+            Self::default(),
             |Self {
                  mut index,
                  word_len: _,
@@ -33,6 +30,14 @@ impl CharPositions {
                 }
             },
         )
+    }
+
+    pub fn remove_char_at_pos(&mut self, ch: char, pos: CharPos) {
+        if let Some(set) = self.index.get_mut(&ch) {
+            if set.remove(&pos) && set.is_empty() {
+                self.index.remove(&ch);
+            }
+        }
     }
 
     pub fn positions(&self, ch: char) -> Option<&HashSet<CharPos>> {
@@ -54,12 +59,13 @@ mod tests {
         assert_eq!(
             CharPositions::new("сазан"),
             CharPositions {
-                index: HashMap::from([
-                    ('с', HashSet::from([CharPos(0)])),
-                    ('а', HashSet::from([CharPos(1), CharPos(3)])),
-                    ('з', HashSet::from([CharPos(2)])),
-                    ('н', HashSet::from([CharPos(4)])),
-                ]),
+                index: [
+                    ('с', [CharPos(0)].into()),
+                    ('а', [CharPos(1), CharPos(3)].into()),
+                    ('з', [CharPos(2)].into()),
+                    ('н', [CharPos(4)].into()),
+                ]
+                .into(),
                 word_len: 5
             }
         );
@@ -70,7 +76,7 @@ mod tests {
         let word_index = CharPositions::new("сазан");
         assert_eq!(
             word_index.positions('а'),
-            Some(&HashSet::from([CharPos(1), CharPos(3)]))
+            Some(&[CharPos(1), CharPos(3)].into())
         );
         assert_eq!(word_index.positions('б'), None);
     }

@@ -4,13 +4,13 @@ use std::collections::{HashMap, HashSet};
 const DICT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/mordle-dict.txt"));
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq)]
-struct WordIndex(usize);
+pub struct WordIndex(usize);
 
 pub struct Dict {
     words: Vec<&'static str>,
     words_set: HashSet<&'static str>,
     global_char_index: HashMap<char, HashSet<WordIndex>>,
-    char_at_pos_index: HashMap<(CharPos, char), HashSet<WordIndex>>,
+    _char_at_pos_index: HashMap<(CharPos, char), HashSet<WordIndex>>,
 }
 
 impl Default for Dict {
@@ -48,13 +48,13 @@ impl Default for Dict {
             words,
             words_set,
             global_char_index,
-            char_at_pos_index,
+            _char_at_pos_index: char_at_pos_index,
         }
     }
 }
 
 impl Dict {
-    fn char_stat(words: impl IntoIterator<Item = &'static str>) -> HashMap<char, usize> {
+    fn _char_stat(words: impl IntoIterator<Item = &'static str>) -> HashMap<char, usize> {
         words
             .into_iter()
             .flat_map(|s| s.chars())
@@ -62,6 +62,20 @@ impl Dict {
                 acc.entry(ch).and_modify(|cnt| *cnt += 1).or_insert(1);
                 acc
             })
+    }
+
+    #[inline]
+    pub fn words(&self) -> &[&'static str] {
+        &self.words
+    }
+
+    pub fn word_in_dict(&self, word: &str) -> bool {
+        self.words_set.contains(word)
+    }
+
+    #[inline]
+    pub fn global_char_index(&self) -> &HashMap<char, HashSet<WordIndex>> {
+        &self.global_char_index
     }
 }
 
@@ -86,7 +100,7 @@ mod tests {
     #[test]
     fn char_stat() {
         let dict = Dict::default();
-        let stat = Dict::char_stat(dict.words.iter().copied());
+        let stat = Dict::_char_stat(dict.words.iter().copied());
 
         let mut stat_v: Vec<_> = stat.iter().map(|(&c, &u)| (c, u)).collect();
         stat_v.sort_unstable_by(|(a_char, a_cnt), (b_char, b_cnt)| {
@@ -95,7 +109,7 @@ mod tests {
         println!("{stat_v:?}");
 
         let mut index_size = dict
-            .global_char_index
+            .global_char_index()
             .iter()
             .map(|(&ch, set)| (ch, set.len()))
             .collect::<Vec<_>>();
@@ -118,7 +132,7 @@ mod tests {
     #[test]
     fn word_stat() {
         let dict = Dict::default();
-        let stat = Dict::char_stat(dict.words.iter().copied());
+        let stat = Dict::_char_stat(dict.words.iter().copied());
 
         let mut word_score: Vec<_> = dict
             .words
@@ -132,7 +146,7 @@ mod tests {
                 let char_count_in_words: usize = chars.iter().filter_map(|ch| stat.get(ch)).sum();
                 let words_with_char: usize = chars
                     .iter()
-                    .filter_map(|ch| dict.global_char_index.get(ch))
+                    .filter_map(|ch| dict.global_char_index().get(ch))
                     .map(|set| set.len())
                     .sum();
                 (word, char_count_in_words, words_with_char)
@@ -176,7 +190,7 @@ mod tests {
     #[test]
     fn char_stat_contains_all_letters() {
         let dict = Dict::default();
-        let mut stat = Dict::char_stat(dict.words.iter().copied());
+        let mut stat = Dict::_char_stat(dict.words.iter().copied());
 
         for ch in 'а'..='я' {
             assert!(matches!(stat.get(&ch), Some(&n) if n > 0));

@@ -6,34 +6,77 @@ pub use attempt_char::AttemptChar;
 pub use char_result::CharResult;
 pub use error::AttemptError;
 
-use crate::{CharPos, CharPositions};
-use std::fmt::{Display, Formatter};
+use crate::{CharPos, CharPositions, Dict};
+use std::{
+    fmt::{Display, Formatter},
+    iter::zip,
+};
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 pub struct Attempt(pub Vec<AttemptChar>);
 
 impl Attempt {
     pub fn inspect_input(
-        input: &[char],
+        input: &str,
         char_positions: &CharPositions,
+        dict: &Dict,
     ) -> Result<Self, AttemptError> {
-        if input.len() == char_positions.word_len() {
+        let chars: Vec<_> = input.chars().collect();
+        if chars.len() != char_positions.word_len() {
+            Err(AttemptError::InputLengthMismatch)
+        } else if !dict.word_in_dict(input) {
+            Err(AttemptError::WordNotInDict)
+        } else {
+            let mut char_positions = char_positions.clone();
+            let exact_chars: Vec<_> = chars
+                .iter()
+                .enumerate()
+                .map(|(pos, &ch)| (CharPos(pos), ch))
+                .map(
+                    |(pos, ch)| match AttemptChar::test_char(&char_positions, ch, pos) {
+                        attempt_char @ AttemptChar {
+                            state: CharResult::Exact,
+                            ..
+                        } => {
+                            char_positions.remove_char_at_pos(ch, pos);
+                            Some(attempt_char)
+                        }
+                        _ => None,
+                    },
+                )
+                .collect();
             Ok(Self(
-                input
-                    .iter()
+                zip(chars, exact_chars)
                     .enumerate()
-                    .map(|(pos, &ch)| AttemptChar::test_char(char_positions, ch, CharPos(pos)))
+                    .map(|(pos, (ch, exact_char))| (CharPos(pos), ch, exact_char))
+                    .map(|(pos, ch, exact_char)| match exact_char {
+                        None => match AttemptChar::test_char(&char_positions, ch, pos) {
+                            attempt_char @ AttemptChar {
+                                state: CharResult::Unsuccessful,
+                                ..
+                            } => attempt_char,
+                            attempt_char => {
+                                char_positions.remove_char_at_pos(ch, pos);
+                                attempt_char
+                            }
+                        },
+                        Some(exact_char) => exact_char,
+                    })
                     .collect(),
             ))
-        } else {
-            Err(AttemptError::InputLengthMismatch)
         }
+    }
+
+    #[inline]
+    pub fn is_win_attempt(&self) -> bool {
+        let Self(attempt_chars) = self;
+        attempt_chars.iter().all(|ac| ac.state == CharResult::Exact)
     }
 }
 
 impl Display for Attempt {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let Attempt(chars) = self;
+        let Self(chars) = self;
         for ch in chars {
             write!(f, "{}", ch)?;
         }
@@ -75,10 +118,7 @@ mod tests {
     #[test]
     fn inspect_input() {
         assert_eq!(
-            Attempt::inspect_input(
-                &"казна".chars().collect::<Vec<_>>(),
-                &CharPositions::from("сазан")
-            ),
+            Attempt::inspect_input("казна", &"сазан".into(), &Dict::default()),
             Ok(Attempt(vec![
                 AttemptChar {
                     ch: 'к',
@@ -105,13 +145,65 @@ mod tests {
     }
 
     #[test]
+    fn inspect_input_same_letter() {
+        assert_eq!(
+            Attempt::inspect_input("парад", &"парус".into(), &Dict::default()),
+            Ok(Attempt(vec![
+                AttemptChar {
+                    ch: 'п',
+                    state: CharResult::Exact,
+                },
+                AttemptChar {
+                    ch: 'а',
+                    state: CharResult::Exact,
+                },
+                AttemptChar {
+                    ch: 'р',
+                    state: CharResult::Exact,
+                },
+                AttemptChar {
+                    ch: 'а',
+                    state: CharResult::Unsuccessful,
+                },
+                AttemptChar {
+                    ch: 'д',
+                    state: CharResult::Unsuccessful,
+                },
+            ]))
+        );
+    }
+
+    #[test]
     fn test_input_mismatch_len() {
         assert_eq!(
-            Attempt::inspect_input(
-                &"топ".chars().collect::<Vec<_>>(),
-                &CharPositions::from("сазан")
-            ),
+            Attempt::inspect_input("топ", &"сазан".into(), &Dict::default()),
             Err(AttemptError::InputLengthMismatch)
+        );
+    }
+
+    #[test]
+    fn test_input_not_in_dict() {
+        assert_eq!(
+            Attempt::inspect_input("сазае", &"сазан".into(), &Dict::default()),
+            Err(AttemptError::WordNotInDict)
+        );
+    }
+
+    #[test]
+    fn not_is_win_attempt() {
+        assert!(
+            !Attempt::inspect_input("казна", &"сазан".into(), &Dict::default())
+                .unwrap()
+                .is_win_attempt()
+        );
+    }
+
+    #[test]
+    fn is_win_attempt() {
+        assert!(
+            Attempt::inspect_input("сазан", &"сазан".into(), &Dict::default())
+                .unwrap()
+                .is_win_attempt()
         );
     }
 }

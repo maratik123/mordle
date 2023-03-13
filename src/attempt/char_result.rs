@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub enum CharResult {
     Exact,
     NotInPosition,
@@ -13,9 +13,9 @@ impl Display for CharResult {
             f,
             "{}",
             match self {
-                CharResult::Exact => '+',
-                CharResult::NotInPosition => '?',
-                CharResult::Unsuccessful => ' ',
+                Self::Exact => '+',
+                Self::NotInPosition => '?',
+                Self::Unsuccessful => ' ',
             }
         )
     }
