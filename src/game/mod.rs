@@ -3,8 +3,10 @@ mod status;
 
 pub use error::GameError;
 pub use status::GameFinishStatus;
+use std::collections::BTreeSet;
+use std::io::{BufRead, Write};
 
-use crate::{Attempt, CharPositions, Dict};
+use crate::{Attempt, CharPositions, CharResult, Dict, LineReader};
 
 pub struct Game<'a> {
     dict: &'a Dict,
@@ -43,14 +45,12 @@ impl<'a> Game<'a> {
     pub fn finish_status(&self) -> Option<GameFinishStatus> {
         if self.tries.len() > self.max_tries {
             Some(GameFinishStatus::Fail)
+        } else if let Some(true) = self.tries.last().map(|attempt| attempt.is_win_attempt()) {
+            Some(GameFinishStatus::Win)
+        } else if self.tries.len() == self.max_tries {
+            Some(GameFinishStatus::Fail)
         } else {
-            self.tries
-                .last()
-                .filter(|attempt| attempt.is_win_attempt())
-                .map(|_| GameFinishStatus::Win)
-                .or_else(|| {
-                    Some(GameFinishStatus::Fail).filter(|_| self.tries.len() == self.max_tries)
-                })
+            None
         }
     }
 
@@ -58,12 +58,59 @@ impl<'a> Game<'a> {
     pub fn max_tries(&self) -> usize {
         self.max_tries
     }
+
+    pub fn main_loop(
+        &mut self,
+        r: &mut impl BufRead,
+        w: &mut impl Write,
+    ) -> Result<GameFinishStatus, GameError> {
+        let mut line_reader = LineReader::default();
+        let mut avail_chars: BTreeSet<_> = self.dict.global_char_index().keys().copied().collect();
+        for t in 1usize.. {
+            loop {
+                write!(w, "Available chars: ")?;
+                for ch in &avail_chars {
+                    write!(w, "{ch}")?;
+                }
+                writeln!(w)?;
+
+                write!(w, "Enter try {t} of {}: ", self.max_tries())?;
+                w.flush()?;
+
+                match self.try_input(line_reader.read(r)?.trim()) {
+                    Ok(attempt) => {
+                        let Attempt(attempt_chars) = attempt;
+                        for ch in attempt_chars
+                            .iter()
+                            .filter(|attempt_char| attempt_char.state == CharResult::Unsuccessful)
+                            .map(|attempt_char| attempt_char.ch)
+                        {
+                            avail_chars.remove(&ch);
+                        }
+                        writeln!(w, "{attempt}")?;
+                        break;
+                    }
+                    Err(err @ GameError::AttemptError(_)) => {
+                        writeln!(w, "{err}")?;
+                    }
+                    other => {
+                        other?;
+                    }
+                }
+            }
+            if let Some(status) = self.finish_status() {
+                return Ok(status);
+            }
+        }
+        unreachable!()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::attempt::AttemptError;
+    use std::io::Cursor;
 
     #[test]
     fn new_ok() {
@@ -97,7 +144,7 @@ mod tests {
         let old_game_tries = game.tries.clone();
         assert_eq!(
             game.try_input("абвг"),
-            Err(GameError::AttemptError(AttemptError::InputLengthMismatch))
+            Err(AttemptError::InputLengthMismatch.into())
         );
         assert_eq!(game.finish_status(), None);
         assert_eq!(game.tries, old_game_tries);
@@ -110,7 +157,7 @@ mod tests {
         let old_game_tries = game.tries.clone();
         assert_eq!(
             game.try_input("абвгд"),
-            Err(GameError::AttemptError(AttemptError::WordNotInDict))
+            Err(AttemptError::WordNotInDict.into())
         );
         assert_eq!(game.finish_status(), None);
         assert_eq!(game.tries, old_game_tries);
@@ -151,5 +198,91 @@ mod tests {
         assert_eq!(game.try_input("бедро").map(|_| ()), Ok(()));
         assert_eq!(game.finish_status(), Some(GameFinishStatus::Fail));
         assert_eq!(game.try_input("сазан"), Err(GameError::TriesExhausted));
+    }
+
+    #[test]
+    fn main_loop_win() {
+        let dict = Dict::default();
+        let mut out = vec![];
+        let word = "сазан";
+        let mut inp = Cursor::new("сазан\n");
+        let mut game = Game::new(&dict, word, 6).unwrap();
+        assert_eq!(
+            game.main_loop(&mut inp, &mut out),
+            Ok(GameFinishStatus::Win)
+        );
+        assert_eq!(
+            String::from_utf8(out).unwrap().as_str(),
+            "\
+            Available chars: абвгдежзийклмнопрстуфхцчшщъыьэюя\n\
+            Enter try 1 of 6: с+а+з+а+н+\n\
+            "
+        );
+    }
+
+    #[test]
+    fn main_loop_win_at_edge() {
+        let dict = Dict::default();
+        let mut out = vec![];
+        let word = "сазан";
+        let mut inp = Cursor::new("казан\nсазан\n");
+        let mut game = Game::new(&dict, word, 2).unwrap();
+        assert_eq!(
+            game.main_loop(&mut inp, &mut out),
+            Ok(GameFinishStatus::Win)
+        );
+        assert_eq!(
+            String::from_utf8(out).unwrap().as_str(),
+            "\
+            Available chars: абвгдежзийклмнопрстуфхцчшщъыьэюя\n\
+            Enter try 1 of 2: к а+з+а+н+\n\
+            Available chars: абвгдежзийлмнопрстуфхцчшщъыьэюя\n\
+            Enter try 2 of 2: с+а+з+а+н+\n\
+            "
+        );
+    }
+
+    #[test]
+    fn main_loop_fail_after_edge() {
+        let dict = Dict::default();
+        let mut out = vec![];
+        let word = "сазан";
+        let mut inp = Cursor::new("казан\nфазан\nсазан\n");
+        let mut game = Game::new(&dict, word, 2).unwrap();
+        assert_eq!(
+            game.main_loop(&mut inp, &mut out),
+            Ok(GameFinishStatus::Fail)
+        );
+        assert_eq!(
+            String::from_utf8(out).unwrap().as_str(),
+            "\
+            Available chars: абвгдежзийклмнопрстуфхцчшщъыьэюя\n\
+            Enter try 1 of 2: к а+з+а+н+\n\
+            Available chars: абвгдежзийлмнопрстуфхцчшщъыьэюя\n\
+            Enter try 2 of 2: ф а+з+а+н+\n\
+            "
+        );
+    }
+
+    #[test]
+    fn main_loop_fail() {
+        let dict = Dict::default();
+        let mut out = vec![];
+        let word = "сазан";
+        let mut inp = Cursor::new("казан\nфазан\n");
+        let mut game = Game::new(&dict, word, 2).unwrap();
+        assert_eq!(
+            game.main_loop(&mut inp, &mut out),
+            Ok(GameFinishStatus::Fail)
+        );
+        assert_eq!(
+            String::from_utf8(out).unwrap().as_str(),
+            "\
+            Available chars: абвгдежзийклмнопрстуфхцчшщъыьэюя\n\
+            Enter try 1 of 2: к а+з+а+н+\n\
+            Available chars: абвгдежзийлмнопрстуфхцчшщъыьэюя\n\
+            Enter try 2 of 2: ф а+з+а+н+\n\
+            "
+        );
     }
 }

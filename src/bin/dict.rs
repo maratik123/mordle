@@ -29,15 +29,9 @@ struct Cli {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let stdin = io::stdin();
-    let stdin = stdin.lock();
-    let mut stdin = BufReader::new(stdin);
-    let stdout = io::stdout();
-    let stdout = stdout.lock();
-    let mut stdout = BufWriter::new(stdout);
     filter(
-        &mut stdin,
-        &mut stdout,
+        &mut BufReader::new(io::stdin().lock()),
+        &mut BufWriter::new(io::stdout().lock()),
         cli.length,
         cli.cyrillic,
         cli.map_e_yo,
