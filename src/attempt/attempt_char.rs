@@ -12,8 +12,8 @@ impl AttemptChar {
         Self {
             ch,
             state: match char_positions.positions(ch) {
-                Some(set) if set.contains(&pos) => CharResult::Exact,
-                Some(set) if set.is_empty() => CharResult::Unsuccessful,
+                Some(positions) if positions.contains(&pos) => CharResult::Exact,
+                Some(positions) if positions.is_empty() => CharResult::Unsuccessful,
                 Some(_) => CharResult::NotInPosition,
                 None => CharResult::Unsuccessful,
             },
