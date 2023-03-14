@@ -78,7 +78,7 @@ impl Display for Attempt {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let Self(chars) = self;
         for ch in chars {
-            write!(f, "{}", ch)?;
+            write!(f, "{ch}")?;
         }
         Ok(())
     }

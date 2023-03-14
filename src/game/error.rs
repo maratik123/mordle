@@ -26,7 +26,7 @@ impl Display for GameError {
         match self {
             Self::TriesExhausted => write!(f, "Tries exhausted"),
             Self::AlreadyWin => write!(f, "Already win"),
-            Self::AttemptError(attempt_error) => write!(f, "Attempt error: {}", attempt_error),
+            Self::AttemptError(attempt_error) => write!(f, "Attempt error: {attempt_error}"),
             Self::GameWordNotInDict => write!(f, "Game initiated with word not in dict"),
         }
     }

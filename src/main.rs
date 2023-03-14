@@ -1,12 +1,11 @@
 use mordle::{Attempt, CharResult, Dict, Game, GameError, GameFinishStatus};
 use rand::seq::SliceRandom;
-use std::io::BufWriter;
 use std::{
     collections::BTreeSet,
     error::Error,
     fmt::{Debug, Display, Formatter},
     io,
-    io::Write,
+    io::{BufWriter, Write},
 };
 
 #[derive(Debug)]
@@ -44,7 +43,7 @@ fn main() -> anyhow::Result<()> {
                 let mut stdout = BufWriter::new(stdout);
                 write!(stdout, "Available chars: ")?;
                 for ch in &avail_chars {
-                    write!(stdout, "{}", ch)?;
+                    write!(stdout, "{ch}")?;
                 }
                 writeln!(stdout)?;
 
@@ -63,11 +62,11 @@ fn main() -> anyhow::Result<()> {
                     {
                         avail_chars.remove(&ch);
                     }
-                    println!("{}", attempt);
+                    println!("{attempt}");
                     break;
                 }
                 Err(GameError::AttemptError(attempt_error)) => {
-                    println!("{}", attempt_error);
+                    println!("{attempt_error}");
                 }
                 other => {
                     other?;
