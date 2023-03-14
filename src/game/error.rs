@@ -12,6 +12,7 @@ pub enum GameError {
     AttemptError(AttemptError),
     GameWordNotInDict,
     IoError(io::Error),
+    UnexpectedEndOfFile,
 }
 
 #[cfg(test)]
@@ -25,6 +26,7 @@ impl PartialEq for GameError {
             Self::IoError(io) => {
                 matches!(other, Self::IoError(other_io) if io.kind() == other_io.kind())
             }
+            Self::UnexpectedEndOfFile => matches!(other, Self::UnexpectedEndOfFile),
         }
     }
 }
@@ -53,6 +55,7 @@ impl Display for GameError {
             Self::AttemptError(attempt_error) => write!(f, "Attempt error: {attempt_error}"),
             Self::GameWordNotInDict => write!(f, "Game initiated with word not in dict"),
             Self::IoError(err) => write!(f, "I/O Error: {err}"),
+            Self::UnexpectedEndOfFile => write!(f, "Unexpected end of file"),
         }
     }
 }

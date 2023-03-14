@@ -9,12 +9,15 @@ pub struct AttemptChar {
 
 impl AttemptChar {
     pub fn test_char(char_positions: &CharPositions, ch: char, pos: CharPos) -> Self {
+        let set = char_positions.positions(ch);
         Self {
             ch,
-            state: match char_positions.positions(ch) {
-                Some(set) if set.contains(&pos) => CharResult::Exact,
-                Some(_) => CharResult::NotInPosition,
-                None => CharResult::Unsuccessful,
+            state: if set.contains(&pos) {
+                CharResult::Exact
+            } else if set.is_empty() {
+                CharResult::Unsuccessful
+            } else {
+                CharResult::NotInPosition
             },
         }
     }

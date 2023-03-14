@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 pub struct CharPositions {
     index: HashMap<char, HashSet<CharPos>>,
     word_len: usize,
+    default_set: HashSet<CharPos>,
 }
 
 impl From<&str> for CharPositions {
@@ -16,27 +17,32 @@ impl From<&str> for CharPositions {
 
 impl CharPositions {
     pub fn new(word: &str) -> Self {
-        word.chars()
-            .enumerate()
-            .fold(Self::default(), |Self { mut index, .. }, (pos, ch)| {
+        word.chars().enumerate().fold(
+            Self::default(),
+            |Self {
+                 mut index,
+                 default_set,
+                 ..
+             },
+             (pos, ch)| {
                 index.entry(ch).or_default().insert(CharPos(pos));
                 Self {
                     index,
                     word_len: pos + 1,
+                    default_set,
                 }
-            })
+            },
+        )
     }
 
     pub fn remove_char_at_pos(&mut self, ch: char, pos: CharPos) {
         if let Some(set) = self.index.get_mut(&ch) {
-            if set.remove(&pos) && set.is_empty() {
-                self.index.remove(&ch);
-            }
+            set.remove(&pos);
         }
     }
 
-    pub fn positions(&self, ch: char) -> Option<&HashSet<CharPos>> {
-        self.index.get(&ch)
+    pub fn positions(&self, ch: char) -> &HashSet<CharPos> {
+        self.index.get(&ch).unwrap_or(&self.default_set)
     }
 
     #[inline]
@@ -61,19 +67,24 @@ mod tests {
                     ('н', [CharPos(4)].into()),
                 ]
                 .into(),
-                word_len: 5
+                word_len: 5,
+                default_set: HashSet::new()
             }
         );
     }
 
     #[test]
+    fn remove_char_at_pos() {
+        let mut word_index = CharPositions::new("сазан");
+        word_index.remove_char_at_pos('с', CharPos(0));
+        assert_eq!(word_index.positions('с'), &HashSet::new());
+    }
+
+    #[test]
     fn positions() {
         let word_index = CharPositions::new("сазан");
-        assert_eq!(
-            word_index.positions('а'),
-            Some(&[CharPos(1), CharPos(3)].into())
-        );
-        assert_eq!(word_index.positions('б'), None);
+        assert_eq!(word_index.positions('а'), &[CharPos(1), CharPos(3)].into());
+        assert_eq!(word_index.positions('б'), &HashSet::new());
     }
 
     #[test]
