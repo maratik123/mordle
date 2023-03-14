@@ -20,15 +20,11 @@ impl PartialEq for GameError {
         match self {
             Self::TriesExhausted => matches!(other, Self::TriesExhausted),
             Self::AlreadyWin => matches!(other, Self::AlreadyWin),
-            Self::AttemptError(e) => match other {
-                Self::AttemptError(oe) => e == oe,
-                _ => false,
-            },
+            Self::AttemptError(e) => matches!(other, Self::AttemptError(oe) if e == oe),
             Self::GameWordNotInDict => matches!(other, Self::GameWordNotInDict),
-            Self::IoError(io) => match other {
-                Self::IoError(other_io) => io.kind() == other_io.kind(),
-                _ => false,
-            },
+            Self::IoError(io) => {
+                matches!(other, Self::IoError(other_io) if io.kind() == other_io.kind())
+            }
         }
     }
 }
