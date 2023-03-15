@@ -19,7 +19,7 @@ impl Attempt {
     pub fn inspect_input(
         input: &str,
         char_positions: &CharPositions,
-        dict: &Dict,
+        dict: &impl Dict,
     ) -> Result<Self, AttemptError> {
         let chars: Vec<_> = input.chars().collect();
         if chars.len() != char_positions.word_len() {
@@ -87,6 +87,7 @@ impl Display for Attempt {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::StaticDict;
 
     #[test]
     fn display_attempt() {
@@ -118,7 +119,7 @@ mod tests {
     #[test]
     fn inspect_input() {
         assert_eq!(
-            Attempt::inspect_input("казна", &"сазан".into(), &Dict::default()),
+            Attempt::inspect_input("казна", &"сазан".into(), &StaticDict::default()),
             Ok(Attempt(vec![
                 AttemptChar {
                     ch: 'к',
@@ -147,7 +148,7 @@ mod tests {
     #[test]
     fn inspect_input_same_letter() {
         assert_eq!(
-            Attempt::inspect_input("парад", &"парус".into(), &Dict::default()),
+            Attempt::inspect_input("парад", &"парус".into(), &StaticDict::default()),
             Ok(Attempt(vec![
                 AttemptChar {
                     ch: 'п',
@@ -176,7 +177,7 @@ mod tests {
     #[test]
     fn test_input_mismatch_len() {
         assert_eq!(
-            Attempt::inspect_input("топ", &"сазан".into(), &Dict::default()),
+            Attempt::inspect_input("топ", &"сазан".into(), &StaticDict::default()),
             Err(AttemptError::InputLengthMismatch)
         );
     }
@@ -184,7 +185,7 @@ mod tests {
     #[test]
     fn test_input_not_in_dict() {
         assert_eq!(
-            Attempt::inspect_input("сазае", &"сазан".into(), &Dict::default()),
+            Attempt::inspect_input("сазае", &"сазан".into(), &StaticDict::default()),
             Err(AttemptError::WordNotInDict)
         );
     }
@@ -192,7 +193,7 @@ mod tests {
     #[test]
     fn not_is_win_attempt() {
         assert!(
-            !Attempt::inspect_input("казна", &"сазан".into(), &Dict::default())
+            !Attempt::inspect_input("казна", &"сазан".into(), &StaticDict::default())
                 .unwrap()
                 .is_win_attempt()
         );
@@ -201,7 +202,7 @@ mod tests {
     #[test]
     fn is_win_attempt() {
         assert!(
-            Attempt::inspect_input("сазан", &"сазан".into(), &Dict::default())
+            Attempt::inspect_input("сазан", &"сазан".into(), &StaticDict::default())
                 .unwrap()
                 .is_win_attempt()
         );

@@ -6,14 +6,22 @@ const DICT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/mordle
 #[derive(Copy, Clone, Hash, Eq, PartialEq)]
 pub struct WordIndex(usize);
 
-pub struct Dict {
+pub trait Dict {
+    fn words(&self) -> &[&'static str];
+    fn words_set(&self) -> &HashSet<&'static str>;
+    fn global_char_index(&self) -> &HashMap<char, HashSet<WordIndex>>;
+    fn char_at_pos_index(&self) -> &HashMap<CharPos, HashMap<char, HashSet<WordIndex>>>;
+    fn word_in_dict(&self, word: &str) -> bool;
+}
+
+pub struct StaticDict {
     words: Vec<&'static str>,
     words_set: HashSet<&'static str>,
     global_char_index: HashMap<char, HashSet<WordIndex>>,
-    _char_at_pos_index: HashMap<(CharPos, char), HashSet<WordIndex>>,
+    char_at_pos_index: HashMap<CharPos, HashMap<char, HashSet<WordIndex>>>,
 }
 
-impl Default for Dict {
+impl Default for StaticDict {
     fn default() -> Self {
         let mut words: Vec<_> = DICT.lines().collect();
         words.sort_unstable();
@@ -32,12 +40,14 @@ impl Default for Dict {
             .fold(
                 (
                     HashMap::<_, HashSet<_>>::new(),
-                    HashMap::<_, HashSet<_>>::new(),
+                    HashMap::<_, HashMap<_, HashSet<_>>>::new(),
                 ),
                 |(mut global_char_index, mut char_at_pos_index), (index, pos, ch)| {
                     global_char_index.entry(ch).or_default().insert(index);
                     char_at_pos_index
-                        .entry((pos, ch))
+                        .entry(pos)
+                        .or_default()
+                        .entry(ch)
                         .or_default()
                         .insert(index);
                     (global_char_index, char_at_pos_index)
@@ -48,13 +58,14 @@ impl Default for Dict {
             words,
             words_set,
             global_char_index,
-            _char_at_pos_index: char_at_pos_index,
+            char_at_pos_index,
         }
     }
 }
 
-impl Dict {
-    fn _char_stat(words: impl IntoIterator<Item = &'static str>) -> HashMap<char, usize> {
+impl StaticDict {
+    #[cfg(test)]
+    fn char_stat(words: impl IntoIterator<Item = &'static str>) -> HashMap<char, usize> {
         words
             .into_iter()
             .flat_map(|s| s.chars())
@@ -63,19 +74,31 @@ impl Dict {
                 acc
             })
     }
+}
 
+impl Dict for StaticDict {
     #[inline]
-    pub fn words(&self) -> &[&'static str] {
+    fn words(&self) -> &[&'static str] {
         &self.words
     }
 
-    pub fn word_in_dict(&self, word: &str) -> bool {
-        self.words_set.contains(word)
+    #[inline]
+    fn words_set(&self) -> &HashSet<&'static str> {
+        &self.words_set
     }
 
     #[inline]
-    pub fn global_char_index(&self) -> &HashMap<char, HashSet<WordIndex>> {
+    fn global_char_index(&self) -> &HashMap<char, HashSet<WordIndex>> {
         &self.global_char_index
+    }
+
+    #[inline]
+    fn char_at_pos_index(&self) -> &HashMap<CharPos, HashMap<char, HashSet<WordIndex>>> {
+        &self.char_at_pos_index
+    }
+
+    fn word_in_dict(&self, word: &str) -> bool {
+        self.words_set.contains(word)
     }
 }
 
@@ -87,24 +110,24 @@ mod tests {
     #[test]
     fn words_contains_sazan() {
         assert!(matches!(
-            Dict::default().words.binary_search(&"сазан"),
+            StaticDict::default().words.binary_search(&"сазан"),
             Ok(_)
         ));
     }
 
     #[test]
     fn words_set_contains_sazan() {
-        assert!(Dict::default().words_set.contains("сазан"));
+        assert!(StaticDict::default().words_set.contains("сазан"));
     }
 
     #[test]
     fn char_stat() {
-        let dict = Dict::default();
-        let stat = Dict::_char_stat(dict.words.iter().copied());
+        let dict = StaticDict::default();
+        let stat = StaticDict::char_stat(dict.words.iter().copied());
 
         let mut stat_v: Vec<_> = stat.iter().map(|(&c, &u)| (c, u)).collect();
         stat_v.sort_unstable_by(|(a_char, a_cnt), (b_char, b_cnt)| {
-            a_cnt.cmp(b_cnt).reverse().then(a_char.cmp(b_char))
+            a_cnt.cmp(b_cnt).reverse().then_with(|| a_char.cmp(b_char))
         });
         println!("{stat_v:?}");
 
@@ -114,7 +137,7 @@ mod tests {
             .map(|(&ch, set)| (ch, set.len()))
             .collect::<Vec<_>>();
         index_size.sort_unstable_by(|(a_char, a_cnt), (b_char, b_cnt)| {
-            a_cnt.cmp(b_cnt).reverse().then(a_char.cmp(b_char))
+            a_cnt.cmp(b_cnt).reverse().then_with(|| a_char.cmp(b_char))
         });
         println!("{index_size:?}");
 
@@ -131,8 +154,8 @@ mod tests {
     //noinspection DuplicatedCode
     #[test]
     fn word_stat() {
-        let dict = Dict::default();
-        let stat = Dict::_char_stat(dict.words.iter().copied());
+        let dict = StaticDict::default();
+        let stat = StaticDict::char_stat(dict.words.iter().copied());
 
         let mut word_score: Vec<_> = dict
             .words
@@ -172,7 +195,7 @@ mod tests {
                 (a_char_count_in_words, a_words_with_char)
                     .cmp(&(b_char_count_in_words, b_words_with_char))
                     .reverse()
-                    .then(a_word.cmp(b_word))
+                    .then_with(|| a_word.cmp(b_word))
             },
         );
         sort_and_print(
@@ -182,15 +205,15 @@ mod tests {
                 (a_words_with_char, a_char_count_in_words)
                     .cmp(&(b_words_with_char, b_char_count_in_words))
                     .reverse()
-                    .then(a_word.cmp(b_word))
+                    .then_with(|| a_word.cmp(b_word))
             },
         );
     }
 
     #[test]
     fn char_stat_contains_all_letters() {
-        let dict = Dict::default();
-        let mut stat = Dict::_char_stat(dict.words.iter().copied());
+        let dict = StaticDict::default();
+        let mut stat = StaticDict::char_stat(dict.words.iter().copied());
 
         for ch in 'а'..='я' {
             assert!(matches!(stat.get(&ch), Some(&n) if n > 0));

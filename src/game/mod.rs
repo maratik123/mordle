@@ -10,15 +10,15 @@ use std::{
 
 use crate::{Attempt, CharPositions, CharResult, Dict};
 
-pub struct Game<'a> {
-    dict: &'a Dict,
+pub struct Game<'a, D: Dict> {
+    dict: &'a D,
     word_index: CharPositions,
     max_tries: usize,
     tries: Vec<Attempt>,
 }
 
-impl<'a> Game<'a> {
-    pub fn new(dict: &'a Dict, word: &str, max_tries: usize) -> Result<Self, GameError> {
+impl<'a, D: Dict> Game<'a, D> {
+    pub fn new(dict: &'a D, word: &str, max_tries: usize) -> Result<Self, GameError> {
         if dict.word_in_dict(word) {
             Ok(Self {
                 dict,
@@ -61,42 +61,6 @@ impl<'a> Game<'a> {
         self.max_tries
     }
 
-    fn print_chars_line(
-        w: &mut impl Write,
-        avail_chars: &HashSet<char>,
-        chs: &[char],
-    ) -> Result<(), GameError> {
-        for ch in chs {
-            if avail_chars.contains(ch) {
-                write!(w, "{ch}")?;
-            } else {
-                write!(w, " ")?;
-            }
-        }
-        writeln!(w)?;
-        Ok(())
-    }
-
-    fn print_chars(w: &mut impl Write, avail_chars: &HashSet<char>) -> Result<(), GameError> {
-        writeln!(w, "Available chars:")?;
-        Self::print_chars_line(
-            w,
-            avail_chars,
-            &['й', 'ц', 'у', 'к', 'е', 'н', 'г', 'ш', 'щ', 'з', 'х', 'ъ'],
-        )?;
-        Self::print_chars_line(
-            w,
-            avail_chars,
-            &['ф', 'ы', 'в', 'а', 'п', 'р', 'о', 'л', 'д', 'ж', 'э'],
-        )?;
-        Self::print_chars_line(
-            w,
-            avail_chars,
-            &['я', 'ч', 'с', 'м', 'и', 'т', 'ь', 'б', 'ю'],
-        )?;
-        Ok(())
-    }
-
     pub fn main_loop(
         &mut self,
         r: &mut impl BufRead,
@@ -106,7 +70,7 @@ impl<'a> Game<'a> {
         let mut avail_chars: HashSet<_> = self.dict.global_char_index().keys().copied().collect();
         for t in 1usize.. {
             loop {
-                Self::print_chars(w, &avail_chars)?;
+                print_chars(w, &avail_chars)?;
 
                 write!(w, "Enter try {t} of {}: ", self.max_tries())?;
                 w.flush()?;
@@ -146,21 +110,57 @@ impl<'a> Game<'a> {
     }
 }
 
+fn print_chars_line(
+    w: &mut impl Write,
+    avail_chars: &HashSet<char>,
+    chs: &[char],
+) -> Result<(), GameError> {
+    for ch in chs {
+        if avail_chars.contains(ch) {
+            write!(w, "{ch}")?;
+        } else {
+            write!(w, " ")?;
+        }
+    }
+    writeln!(w)?;
+    Ok(())
+}
+
+fn print_chars(w: &mut impl Write, avail_chars: &HashSet<char>) -> Result<(), GameError> {
+    writeln!(w, "Available chars:")?;
+    print_chars_line(
+        w,
+        avail_chars,
+        &['й', 'ц', 'у', 'к', 'е', 'н', 'г', 'ш', 'щ', 'з', 'х', 'ъ'],
+    )?;
+    print_chars_line(
+        w,
+        avail_chars,
+        &['ф', 'ы', 'в', 'а', 'п', 'р', 'о', 'л', 'д', 'ж', 'э'],
+    )?;
+    print_chars_line(
+        w,
+        avail_chars,
+        &['я', 'ч', 'с', 'м', 'и', 'т', 'ь', 'б', 'ю'],
+    )?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::attempt::AttemptError;
+    use crate::{attempt::AttemptError, StaticDict};
     use std::io::Cursor;
 
     #[test]
     fn new_ok() {
-        let dict = Dict::default();
+        let dict = StaticDict::default();
         assert_eq!(Game::new(&dict, "сазан", 5).map(|_| ()), Ok(()));
     }
 
     #[test]
     fn new_not_in_dict() {
-        let dict = Dict::default();
+        let dict = StaticDict::default();
         assert_eq!(
             Game::new(&dict, "абвгд", 5).map(|_| ()),
             Err(GameError::GameWordNotInDict)
@@ -169,7 +169,7 @@ mod tests {
 
     #[test]
     fn try_input_first() {
-        let dict = Dict::default();
+        let dict = StaticDict::default();
         let mut game = Game::new(&dict, "сазан", 5).unwrap();
         let old_game_tries = game.tries.clone();
         assert_eq!(game.try_input("казан").map(|_| ()), Ok(()));
@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn try_input_size_mismatch() {
-        let dict = Dict::default();
+        let dict = StaticDict::default();
         let mut game = Game::new(&dict, "сазан", 5).unwrap();
         let old_game_tries = game.tries.clone();
         assert_eq!(
@@ -192,7 +192,7 @@ mod tests {
 
     #[test]
     fn try_input_not_in_dict() {
-        let dict = Dict::default();
+        let dict = StaticDict::default();
         let mut game = Game::new(&dict, "сазан", 5).unwrap();
         let old_game_tries = game.tries.clone();
         assert_eq!(
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn try_input_success() {
-        let dict = Dict::default();
+        let dict = StaticDict::default();
         let mut game = Game::new(&dict, "сазан", 5).unwrap();
         let old_game_tries = game.tries.clone();
         assert_eq!(game.try_input("сазан").map(|_| ()), Ok(()));
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn try_input_prev_success() {
-        let dict = Dict::default();
+        let dict = StaticDict::default();
         let mut game = Game::new(&dict, "сазан", 5).unwrap();
         let old_game_tries = game.tries.clone();
         assert_eq!(game.try_input("сазан").map(|_| ()), Ok(()));
@@ -232,7 +232,7 @@ mod tests {
 
     #[test]
     fn tries_exhausted() {
-        let dict = Dict::default();
+        let dict = StaticDict::default();
         let mut game = Game::new(&dict, "сазан", 2).unwrap();
         assert_eq!(game.try_input("фазан").map(|_| ()), Ok(()));
         assert_eq!(game.try_input("бедро").map(|_| ()), Ok(()));
@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn main_loop_win() {
-        let dict = Dict::default();
+        let dict = StaticDict::default();
         let mut game = Game::new(&dict, "сазан", 6).unwrap();
         let mut out = vec![];
         let mut inp = Cursor::new("сазан\n");
@@ -265,7 +265,7 @@ mod tests {
 
     #[test]
     fn main_loop_win_at_edge() {
-        let dict = Dict::default();
+        let dict = StaticDict::default();
         let mut game = Game::new(&dict, "сазан", 2).unwrap();
         let mut out = vec![];
         let mut inp = Cursor::new("казан\nсазан\n");
@@ -293,7 +293,7 @@ mod tests {
 
     #[test]
     fn main_loop_fail_after_edge() {
-        let dict = Dict::default();
+        let dict = StaticDict::default();
         let mut game = Game::new(&dict, "сазан", 2).unwrap();
         let mut out = vec![];
         let mut inp = Cursor::new("казан\nфазан\nсазан\n");
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn main_loop_fail() {
-        let dict = Dict::default();
+        let dict = StaticDict::default();
         let mut game = Game::new(&dict, "сазан", 2).unwrap();
         let mut out = vec![];
         let mut inp = Cursor::new("казан\nфазан\n");
