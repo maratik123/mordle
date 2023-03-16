@@ -184,7 +184,6 @@ mod tests {
 
     #[test]
     fn char_stat() {
-        let mut stdout = BufWriter::new(io::stdout().lock());
         let dict = Dict::default();
         let stat = Dict::char_stat(dict.words.iter().copied());
 
@@ -192,6 +191,7 @@ mod tests {
         stat_v.sort_unstable_by(|(a_char, a_cnt), (b_char, b_cnt)| {
             a_cnt.cmp(b_cnt).reverse().then_with(|| a_char.cmp(b_char))
         });
+        let mut stdout = BufWriter::new(io::stdout().lock());
         writeln!(stdout, "{stat_v:?}").unwrap();
 
         let mut index_size = dict
