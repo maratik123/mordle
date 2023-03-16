@@ -1,4 +1,4 @@
-use mordle::{Dict, Game, GameFinishStatus, StaticDict};
+use mordle::{Dict, Game, GameFinishStatus};
 use rand::seq::SliceRandom;
 use std::{
     error::Error,
@@ -32,7 +32,7 @@ impl From<io::Error> for MainErrors {
 impl Error for MainErrors {}
 
 fn main() -> anyhow::Result<()> {
-    let dict = StaticDict::default();
+    let dict = Dict::default();
     let word = dict
         .words()
         .choose(&mut rand::thread_rng())

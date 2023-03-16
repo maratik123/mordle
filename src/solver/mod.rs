@@ -1,21 +1,19 @@
-pub mod constraints;
-
 use crate::{CharPos, Dict};
 use std::collections::HashMap;
 
-pub struct Solver<'a, D: Dict> {
-    dict: &'a D,
+pub struct Solver<'a> {
+    dict: &'a Dict,
 }
 
-impl<'a, D: Dict> From<&'a D> for Solver<'a, D> {
+impl<'a> From<&'a Dict> for Solver<'a> {
     #[inline]
-    fn from(value: &'a D) -> Self {
+    fn from(value: &'a Dict) -> Self {
         Self::new(value)
     }
 }
 
-impl<'a, D: Dict> Solver<'a, D> {
-    pub fn new(dict: &'a D) -> Self {
+impl<'a> Solver<'a> {
+    pub fn new(dict: &'a Dict) -> Self {
         Self { dict }
     }
 
@@ -39,11 +37,14 @@ impl<'a, D: Dict> Solver<'a, D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::StaticDict;
+    use std::{
+        io,
+        io::{BufWriter, Write},
+    };
 
     #[test]
     fn pos_stats() {
-        let dict = StaticDict::default();
+        let dict = Dict::default();
         let solver = Solver::from(&dict);
         let mut sorted_stats: Vec<(_, _, _)> = solver
             .pos_stats()
@@ -64,15 +65,18 @@ mod tests {
             })
             .collect();
         sorted_stats.sort_unstable();
+        let mut stdout = BufWriter::new(io::stdout().lock());
         for (char, lengths, lengths_sum) in sorted_stats {
             let inv_lengths_sum = 100f64 / lengths_sum as f64;
-            println!(
+            writeln!(
+                stdout,
                 "{char:?}: {:?}",
                 lengths
                     .iter()
                     .map(|&(ch, len)| (ch, len, (len as f64 * inv_lengths_sum) as u8))
                     .collect::<Vec<_>>()
-            );
+            )
+            .unwrap();
         }
     }
 }
