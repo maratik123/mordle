@@ -111,6 +111,40 @@ impl Dict {
         self.words_set.contains(word)
     }
 
+    pub fn deny_chars_at_pos(&mut self, pos: CharPos, chars: &HashSet<char>) {
+        match self.word_index_by_pos_and_char(pos, chars) {
+            Some(word_indices_to_remove) if !word_indices_to_remove.is_empty() => {
+                *self = self.remove_indices(word_indices_to_remove);
+            }
+            _ => {}
+        }
+    }
+
+    pub fn only_chars_at_pos(&mut self, pos: CharPos, chars: &HashSet<char>) {
+        *self = match self.word_index_by_pos_and_char(pos, chars) {
+            Some(word_indices_to_save) if !word_indices_to_save.is_empty() => {
+                self.save_indices(word_indices_to_save)
+            }
+            _ => Dict::empty(),
+        }
+    }
+
+    pub fn deny_chars(&mut self, chars: &HashSet<char>) {
+        let word_indices_to_remove = self.word_index_by_char(chars);
+        if !word_indices_to_remove.is_empty() {
+            *self = self.remove_indices(word_indices_to_remove);
+        }
+    }
+
+    pub fn only_chars(&mut self, chars: &HashSet<char>) {
+        let word_indices_to_save = self.word_index_by_char(chars);
+        *self = if word_indices_to_save.is_empty() {
+            Dict::empty()
+        } else {
+            self.save_indices(word_indices_to_save)
+        }
+    }
+
     fn word_index_by_pos_and_char(
         &self,
         pos: CharPos,
@@ -125,35 +159,32 @@ impl Dict {
         })
     }
 
-    pub fn deny_chars_at_pos(&mut self, pos: CharPos, chars: &HashSet<char>) {
-        match self.word_index_by_pos_and_char(pos, chars) {
-            Some(word_indices_to_remove) if !word_indices_to_remove.is_empty() => {
-                *self = self
-                    .words
-                    .iter()
-                    .enumerate()
-                    .map(|(index, &s)| (WordIndex(index), s))
-                    .filter(|(word_index, _)| !word_indices_to_remove.contains(word_index))
-                    .map(|(_, s)| s)
-                    .collect()
-            }
-            _ => {}
-        }
+    fn word_index_by_char(&self, chars: &HashSet<char>) -> HashSet<WordIndex> {
+        chars
+            .iter()
+            .filter_map(|ch| self.global_char_index.get(ch))
+            .flat_map(|word_indices| word_indices.iter().copied())
+            .collect()
     }
 
-    pub fn only_chars_at_pos(&mut self, pos: CharPos, chars: &HashSet<char>) {
-        *self = match self.word_index_by_pos_and_char(pos, chars) {
-            Some(word_indices_to_save) if !word_indices_to_save.is_empty() => Dict::from_words_vec(
-                self.words
-                    .iter()
-                    .enumerate()
-                    .map(|(index, &s)| (WordIndex(index), s))
-                    .filter(|(word_index, _)| word_indices_to_save.contains(word_index))
-                    .map(|(_, s)| s)
-                    .collect(),
-            ),
-            _ => Dict::empty(),
-        }
+    fn remove_indices(&self, word_indices_to_remove: HashSet<WordIndex>) -> Self {
+        self.words
+            .iter()
+            .enumerate()
+            .map(|(index, &s)| (WordIndex(index), s))
+            .filter(|(word_index, _)| !word_indices_to_remove.contains(word_index))
+            .map(|(_, s)| s)
+            .collect()
+    }
+
+    fn save_indices(&self, word_indices_to_save: HashSet<WordIndex>) -> Self {
+        self.words
+            .iter()
+            .enumerate()
+            .map(|(index, &s)| (WordIndex(index), s))
+            .filter(|(word_index, _)| word_indices_to_save.contains(word_index))
+            .map(|(_, s)| s)
+            .collect()
     }
 }
 
@@ -308,6 +339,21 @@ mod tests {
     }
 
     #[test]
+    fn deny_chars() {
+        let mut dict = Dict::default();
+        dict.deny_chars(&['а'].into());
+        assert_eq!(dict.global_char_index.get(&'а'), None);
+    }
+
+    #[test]
+    fn deny_chars_empty() {
+        let mut dict = Dict::default();
+        let old_dict = dict.clone();
+        dict.deny_chars(&[].into());
+        assert_eq!(old_dict, dict);
+    }
+
+    #[test]
     fn only_chars_at_pos() {
         let mut dict = Dict::default();
         dict.only_chars_at_pos(CharPos(0), &['а'].into());
@@ -327,6 +373,31 @@ mod tests {
     fn only_chars_at_pos_empty() {
         let mut dict = Dict::default();
         dict.only_chars_at_pos(CharPos(0), &HashSet::new());
+        assert_eq!(dict, Dict::empty());
+    }
+
+    #[test]
+    fn only_chars() {
+        let mut dict = Dict::default();
+        dict.only_chars(&['а'].into());
+        assert_eq!(
+            dict.words
+                .iter()
+                .copied()
+                .filter(|word| word.chars().any(|ch| ch == 'а'))
+                .collect::<Vec<_>>(),
+            dict.words
+        );
+        assert!(matches!(
+            dict.global_char_index().get(&'а'),
+            Some(set) if !set.is_empty()
+        ));
+    }
+
+    #[test]
+    fn only_chars_empty() {
+        let mut dict = Dict::default();
+        dict.only_chars(&HashSet::new());
         assert_eq!(dict, Dict::empty());
     }
 }
