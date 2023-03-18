@@ -400,4 +400,26 @@ mod tests {
         dict.only_chars(&HashSet::new());
         assert_eq!(dict, Dict::empty());
     }
+
+    #[test]
+    fn only_chars_with_deny_chars() {
+        let ch = 'а';
+        let mut dict = Dict::default();
+        let chars: HashSet<_> = [ch].into();
+        dict.only_chars(&chars);
+        assert!(!dict.words.is_empty());
+        dict.deny_chars(&chars);
+        assert_eq!(dict, Dict::empty());
+    }
+
+    #[test]
+    fn deny_chars_with_only_chars() {
+        let ch = 'а';
+        let mut dict = Dict::default();
+        let chars: HashSet<_> = [ch].into();
+        dict.deny_chars(&chars);
+        assert!(!dict.words.is_empty());
+        dict.only_chars(&chars);
+        assert_eq!(dict, Dict::empty());
+    }
 }

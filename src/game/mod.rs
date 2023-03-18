@@ -128,21 +128,13 @@ fn print_chars_line(
 
 fn print_chars(w: &mut impl Write, avail_chars: &HashSet<char>) -> Result<(), GameError> {
     writeln!(w, "Available chars:")?;
-    print_chars_line(
-        w,
-        avail_chars,
-        &['й', 'ц', 'у', 'к', 'е', 'н', 'г', 'ш', 'щ', 'з', 'х', 'ъ'],
-    )?;
-    print_chars_line(
-        w,
-        avail_chars,
-        &['ф', 'ы', 'в', 'а', 'п', 'р', 'о', 'л', 'д', 'ж', 'э'],
-    )?;
-    print_chars_line(
-        w,
-        avail_chars,
-        &['я', 'ч', 'с', 'м', 'и', 'т', 'ь', 'б', 'ю'],
-    )?;
+    for chars in [
+        &['й', 'ц', 'у', 'к', 'е', 'н', 'г', 'ш', 'щ', 'з', 'х', 'ъ'][..],
+        &['ф', 'ы', 'в', 'а', 'п', 'р', 'о', 'л', 'д', 'ж', 'э'][..],
+        &['я', 'ч', 'с', 'м', 'и', 'т', 'ь', 'б', 'ю'][..],
+    ] {
+        print_chars_line(w, avail_chars, chars)?;
+    }
     Ok(())
 }
 
