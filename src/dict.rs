@@ -30,7 +30,7 @@ impl FromIterator<&'static str> for Dict {
 }
 
 impl Dict {
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         Self {
             words: Default::default(),
             words_set: Default::default(),

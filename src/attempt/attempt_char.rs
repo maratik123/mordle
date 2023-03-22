@@ -1,4 +1,7 @@
-use crate::{attempt::CharResult, CharPos, CharPositions};
+use crate::{
+    attempt::{error::ParseAttemptError, CharResult},
+    CharPos, CharPositions,
+};
 use std::fmt::{Display, Formatter};
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
@@ -18,6 +21,17 @@ impl AttemptChar {
                 None => CharResult::Unsuccessful,
             },
         }
+    }
+}
+
+impl TryFrom<(char, char)> for AttemptChar {
+    type Error = ParseAttemptError;
+
+    fn try_from((ch, state): (char, char)) -> Result<Self, Self::Error> {
+        Ok(AttemptChar {
+            ch,
+            state: state.try_into()?,
+        })
     }
 }
 
@@ -64,5 +78,24 @@ mod tests {
                 state: CharResult::Unsuccessful
             }
         );
+    }
+
+    #[test]
+    fn try_from() {
+        assert_eq!(
+            ('а', '+').try_into(),
+            Ok(AttemptChar {
+                ch: 'а',
+                state: CharResult::Exact
+            })
+        );
+    }
+
+    #[test]
+    fn try_from_err() {
+        assert_eq!(
+            ('а', 'б').try_into(),
+            Err::<AttemptChar, _>(ParseAttemptError::CharResultUnexpected('б'))
+        )
     }
 }

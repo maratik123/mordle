@@ -6,14 +6,37 @@ pub use attempt_char::AttemptChar;
 pub use char_result::CharResult;
 pub use error::AttemptError;
 
-use crate::{CharPos, CharPositions, Dict};
+use crate::{attempt::error::ParseAttemptError, CharPos, CharPositions, Dict};
+use itertools::Itertools;
 use std::{
     fmt::{Display, Formatter},
     iter::zip,
+    str::FromStr,
 };
 
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct Attempt(pub Vec<AttemptChar>);
+
+impl FromStr for Attempt {
+    type Err = ParseAttemptError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Attempt(
+            s.chars()
+                .chunks(2)
+                .into_iter()
+                .map(|mut chunk| {
+                    match (chunk.next(), chunk.next()) {
+                        (Some(ch), Some(state)) => (ch, state),
+                        (Some(ch), None) => (ch, ' '),
+                        _ => unreachable!(),
+                    }
+                    .try_into()
+                })
+                .try_collect()?,
+        ))
+    }
+}
 
 impl Attempt {
     pub fn inspect_input(
@@ -204,6 +227,72 @@ mod tests {
             Attempt::inspect_input("сазан", &"сазан".into(), &Dict::default())
                 .unwrap()
                 .is_win_attempt()
+        );
+    }
+
+    #[test]
+    fn try_from() {
+        assert_eq!(
+            "с+а+з?а е ".parse(),
+            Ok(Attempt(vec![
+                AttemptChar {
+                    ch: 'с',
+                    state: CharResult::Exact
+                },
+                AttemptChar {
+                    ch: 'а',
+                    state: CharResult::Exact
+                },
+                AttemptChar {
+                    ch: 'з',
+                    state: CharResult::NotInPosition
+                },
+                AttemptChar {
+                    ch: 'а',
+                    state: CharResult::Unsuccessful
+                },
+                AttemptChar {
+                    ch: 'е',
+                    state: CharResult::Unsuccessful
+                },
+            ]))
+        );
+    }
+
+    #[test]
+    fn try_from_short() {
+        assert_eq!(
+            "с+а+з?а н".parse(),
+            Ok(Attempt(vec![
+                AttemptChar {
+                    ch: 'с',
+                    state: CharResult::Exact
+                },
+                AttemptChar {
+                    ch: 'а',
+                    state: CharResult::Exact
+                },
+                AttemptChar {
+                    ch: 'з',
+                    state: CharResult::NotInPosition
+                },
+                AttemptChar {
+                    ch: 'а',
+                    state: CharResult::Unsuccessful
+                },
+                AttemptChar {
+                    ch: 'н',
+                    state: CharResult::Unsuccessful
+                },
+            ]))
+        );
+    }
+
+    #[test]
+    fn try_from_err() {
+        assert_eq!(
+            "с+а+з?а нб".parse(),
+            Err::<Attempt, _>(ParseAttemptError::CharResultUnexpected('б'))
         );
     }
 }
