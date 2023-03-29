@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use itertools::Itertools;
 use std::{
     collections::BTreeSet,
     io,
@@ -48,45 +49,46 @@ fn filter(
     map_e_yo: bool,
     lower: bool,
 ) -> Result<()> {
-    let mut result = BTreeSet::new();
-    'outer: for line in r.lines() {
-        let chars: Vec<_> = line?.chars().take(filter_len + 1).collect();
-        if chars.len() != filter_len {
-            continue;
-        }
-        if cyrillic
-            && !chars
+    for line in r
+        .lines()
+        .map_ok(|line| line.chars().take(filter_len + 1).collect_vec())
+        .filter_ok(|chars| chars.len() == filter_len)
+        .filter_ok(|chars| {
+            !cyrillic
+                || chars
+                    .iter()
+                    .all(|c| matches!(c, 'А'..='Я' | 'а'..='я' | 'ё' | 'Ё'))
+        })
+        .filter_map_ok(|chars| {
+            chars
                 .iter()
-                .all(|c| matches!(c, 'А'..='Я' | 'а'..='я' | 'ё' | 'Ё'))
-        {
-            continue;
-        }
-        let mut s = String::with_capacity(chars.iter().map(|c| c.len_utf8()).sum());
-        for c in chars {
-            let c = if map_e_yo {
-                match c {
-                    'ё' => 'е',
-                    'Ё' => 'Е',
-                    c => c,
-                }
-            } else {
-                c
-            };
-            let c = if lower {
-                let mut c_it = c.to_lowercase();
-                let c = c_it.next().unwrap_or_else(|| unreachable!());
-                match c_it.next() {
-                    None => c,
-                    _ => continue 'outer,
-                }
-            } else {
-                c
-            };
-            s.push(c);
-        }
-        result.insert(s);
-    }
-    for line in result {
+                .map(|&c| {
+                    if map_e_yo {
+                        match c {
+                            'ё' => 'е',
+                            'Ё' => 'Е',
+                            c => c,
+                        }
+                    } else {
+                        c
+                    }
+                })
+                .map(|c| {
+                    if lower {
+                        let mut c_it = c.to_lowercase();
+                        match (c_it.next(), c_it.next()) {
+                            (Some(c), None) => Ok(c),
+                            _ => Err(()),
+                        }
+                    } else {
+                        Ok(c)
+                    }
+                })
+                .try_collect::<_, String, _>()
+                .ok()
+        })
+        .try_collect::<_, BTreeSet<_>, _>()?
+    {
         writeln!(w, "{line}")?;
     }
     Ok(())

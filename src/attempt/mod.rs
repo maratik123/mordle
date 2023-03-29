@@ -44,14 +44,14 @@ impl Attempt {
         char_positions: &CharPositions,
         dict: &Dict,
     ) -> Result<Self, AttemptError> {
-        let chars: Vec<_> = input.chars().collect();
+        let chars = input.chars().collect_vec();
         if chars.len() != char_positions.word_len() {
             Err(AttemptError::InputLengthMismatch)
         } else if !dict.word_in_dict(input) {
             Err(AttemptError::WordNotInDict)
         } else {
             let mut char_positions = char_positions.clone();
-            let exact_chars: Vec<_> = chars
+            let exact_chars = chars
                 .iter()
                 .enumerate()
                 .map(|(pos, &ch)| (CharPos(pos), ch))
@@ -67,12 +67,12 @@ impl Attempt {
                         _ => None,
                     },
                 )
-                .collect();
+                .collect_vec();
             Ok(Self(
                 zip(chars, exact_chars)
                     .enumerate()
-                    .map(|(pos, (ch, exact_char))| (CharPos(pos), ch, exact_char))
-                    .map(|(pos, ch, exact_char)| match exact_char {
+                    .map(|(pos, t)| (CharPos(pos), t))
+                    .map(|(pos, (ch, exact_char))| match exact_char {
                         None => match AttemptChar::test_char(&char_positions, ch, pos) {
                             attempt_char @ AttemptChar {
                                 state: CharResult::Unsuccessful,

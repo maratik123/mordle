@@ -1,4 +1,5 @@
 use crate::CharPos;
+use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 
 const DICT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/mordle-dict.txt"));
@@ -16,7 +17,7 @@ pub struct Dict {
 
 impl Default for Dict {
     fn default() -> Self {
-        let mut words: Vec<_> = DICT.lines().collect();
+        let mut words = DICT.lines().collect_vec();
         words.sort_unstable();
 
         Self::from_words_vec(words)
@@ -111,33 +112,29 @@ impl Dict {
         self.words_set.contains(word)
     }
 
-    pub fn deny_chars_at_pos(&mut self, pos: CharPos, chars: &HashSet<char>) {
-        match self.word_index_by_pos_and_char(pos, chars) {
-            Some(word_indices_to_remove) if !word_indices_to_remove.is_empty() => {
-                *self = self.remove_indices(word_indices_to_remove);
-            }
-            _ => {}
-        }
+    pub fn deny_chars_at_poses(&mut self, poses: &HashSet<CharPos>, chars: &HashSet<char>) {
+        self.deny_chars_helper(self.word_index_by_poses_and_chars(poses, chars));
     }
 
-    pub fn only_chars_at_pos(&mut self, pos: CharPos, chars: &HashSet<char>) {
-        *self = match self.word_index_by_pos_and_char(pos, chars) {
-            Some(word_indices_to_save) if !word_indices_to_save.is_empty() => {
-                self.save_indices(word_indices_to_save)
-            }
-            _ => Dict::empty(),
-        }
+    pub fn only_chars_at_poses(&mut self, poses: &HashSet<CharPos>, chars: &HashSet<char>) {
+        self.only_chars_helper(self.word_index_by_poses_and_chars(poses, chars));
     }
 
     pub fn deny_chars(&mut self, chars: &HashSet<char>) {
-        let word_indices_to_remove = self.word_index_by_char(chars);
+        self.deny_chars_helper(self.word_index_by_char(chars));
+    }
+
+    fn deny_chars_helper(&mut self, word_indices_to_remove: HashSet<WordIndex>) {
         if !word_indices_to_remove.is_empty() {
             *self = self.remove_indices(word_indices_to_remove);
         }
     }
 
     pub fn only_chars(&mut self, chars: &HashSet<char>) {
-        let word_indices_to_save = self.word_index_by_char(chars);
+        self.only_chars_helper(self.word_index_by_char(chars));
+    }
+
+    fn only_chars_helper(&mut self, word_indices_to_save: HashSet<WordIndex>) {
         *self = if word_indices_to_save.is_empty() {
             Dict::empty()
         } else {
@@ -145,18 +142,21 @@ impl Dict {
         }
     }
 
-    fn word_index_by_pos_and_char(
+    fn word_index_by_poses_and_chars(
         &self,
-        pos: CharPos,
+        poses: &HashSet<CharPos>,
         chars: &HashSet<char>,
-    ) -> Option<HashSet<WordIndex>> {
-        self.char_at_pos_index.get(&pos).map(|word_index_by_char| {
-            chars
-                .iter()
-                .filter_map(|ch| word_index_by_char.get(ch))
-                .flat_map(|word_indices| word_indices.iter().copied())
-                .collect::<HashSet<_>>()
-        })
+    ) -> HashSet<WordIndex> {
+        poses
+            .iter()
+            .filter_map(|pos| self.char_at_pos_index.get(pos))
+            .flat_map(|word_index_by_char| {
+                chars
+                    .iter()
+                    .filter_map(|ch| word_index_by_char.get(ch))
+                    .flat_map(|word_indices| word_indices.iter().copied())
+            })
+            .collect()
     }
 
     fn word_index_by_char(&self, chars: &HashSet<char>) -> HashSet<WordIndex> {
@@ -191,6 +191,7 @@ impl Dict {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use itertools::Itertools;
     use std::{
         cmp::Ordering,
         collections::BTreeMap,
@@ -218,7 +219,7 @@ mod tests {
         let dict = Dict::default();
         let stat = Dict::char_stat(dict.words.iter().copied());
 
-        let mut stat_v: Vec<_> = stat.iter().map(|(&c, &u)| (c, u)).collect();
+        let mut stat_v = stat.iter().map(|(&c, &u)| (c, u)).collect_vec();
         stat_v.sort_unstable_by(|(a_char, a_cnt), (b_char, b_cnt)| {
             a_cnt.cmp(b_cnt).reverse().then_with(|| a_char.cmp(b_char))
         });
@@ -229,7 +230,7 @@ mod tests {
             .global_char_index()
             .iter()
             .map(|(&ch, set)| (ch, set.len()))
-            .collect::<Vec<_>>();
+            .collect_vec();
         index_size.sort_unstable_by(|(a_char, a_cnt), (b_char, b_cnt)| {
             a_cnt.cmp(b_cnt).reverse().then_with(|| a_char.cmp(b_char))
         });
@@ -251,12 +252,7 @@ mod tests {
         F: FnMut(&T, &T) -> Ordering,
     {
         word_score.sort_unstable_by(f);
-        writeln!(
-            w,
-            "{:?}",
-            word_score.iter().copied().take(20).collect::<Vec<_>>()
-        )
-        .unwrap();
+        writeln!(w, "{:?}", word_score.iter().copied().take(20).collect_vec()).unwrap();
     }
 
     //noinspection DuplicatedCode
@@ -265,10 +261,10 @@ mod tests {
         let dict = Dict::default();
         let stat = Dict::char_stat(dict.words.iter().copied());
 
-        let mut word_score: Vec<_> = dict
+        let mut word_score = dict
             .words
             .iter()
-            .map(|&word| (word, word.chars().collect::<Vec<_>>()))
+            .map(|&word| (word, word.chars().collect_vec()))
             .filter(|(_, chars)| {
                 let mut found_chars = HashSet::with_capacity(chars.len());
                 chars.iter().all(|&c| found_chars.insert(c))
@@ -282,7 +278,7 @@ mod tests {
                     .sum();
                 (word, char_count_in_words, words_with_char)
             })
-            .collect();
+            .collect_vec();
         let mut stdout = BufWriter::new(io::stdout().lock());
         sort_and_print(
             &mut stdout,
@@ -323,7 +319,7 @@ mod tests {
     #[test]
     fn deny_chars_at_pos() {
         let mut dict = Dict::default();
-        dict.deny_chars_at_pos(CharPos(0), &['а'].into());
+        dict.deny_chars_at_poses(&[CharPos(0)].into(), &['а'].into());
         assert_eq!(
             dict.char_at_pos_index().get(&CharPos(0)).unwrap().get(&'а'),
             None
@@ -334,7 +330,7 @@ mod tests {
     fn deny_chars_at_pos_empty() {
         let mut dict = Dict::default();
         let old_dict = dict.clone();
-        dict.deny_chars_at_pos(CharPos(0), &HashSet::new());
+        dict.deny_chars_at_poses(&[CharPos(0)].into(), &HashSet::new());
         assert_eq!(old_dict, dict);
     }
 
@@ -356,7 +352,7 @@ mod tests {
     #[test]
     fn only_chars_at_pos() {
         let mut dict = Dict::default();
-        dict.only_chars_at_pos(CharPos(0), &['а'].into());
+        dict.only_chars_at_poses(&[CharPos(0)].into(), &['а'].into());
         for ch in 'б'..='я' {
             assert_eq!(
                 dict.char_at_pos_index().get(&CharPos(0)).unwrap().get(&ch),
@@ -372,7 +368,7 @@ mod tests {
     #[test]
     fn only_chars_at_pos_empty() {
         let mut dict = Dict::default();
-        dict.only_chars_at_pos(CharPos(0), &HashSet::new());
+        dict.only_chars_at_poses(&[CharPos(0)].into(), &HashSet::new());
         assert_eq!(dict, Dict::empty());
     }
 
@@ -385,7 +381,7 @@ mod tests {
                 .iter()
                 .copied()
                 .filter(|word| word.chars().any(|ch| ch == 'а'))
-                .collect::<Vec<_>>(),
+                .collect_vec(),
             dict.words
         );
         assert!(matches!(
