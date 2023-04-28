@@ -62,28 +62,33 @@ pub fn find_pos_char_with_max_weight_in_pos(
         .map(|(pos, ch, _, _)| (pos, ch))
 }
 
+#[derive(Clone)]
 struct SuggestWordState {
     positions: HashSet<CharPos>,
     letters: Vec<char>,
     dict: Dict,
 }
 
-pub fn suggest_word(mut dict: Dict) -> Option<Vec<char>> {
-    let mut positions: HashSet<_> = dict.char_at_pos_index().keys().copied().collect();
+pub fn suggest_word(dict: Dict) -> Option<Vec<char>> {
+    let positions: HashSet<_> = dict.char_at_pos_index().keys().copied().collect();
     if positions.is_empty() {
         return None;
     }
-    let mut letters = vec![char::default(); positions.len()];
+    let mut state = SuggestWordState {
+        letters: vec![char::default(); positions.len()],
+        positions,
+        dict,
+    };
     loop {
-        let (pos, ch) = find_pos_char_with_max_weight_in_pos(&dict, &positions)?;
-        positions.remove(&pos);
+        let (pos, ch) = find_pos_char_with_max_weight_in_pos(&state.dict, &state.positions)?;
+        state.positions.remove(&pos);
         let chars = HashSet::from([ch]);
-        dict.only_chars_at_poses(&[pos].into(), &chars);
-        dict.deny_chars_at_poses(&positions, &chars);
+        state.dict.only_chars_at_poses(&[pos].into(), &chars);
+        state.dict.deny_chars_at_poses(&state.positions, &chars);
         let CharPos(pos) = pos;
-        *letters.get_mut(pos).unwrap_or_else(|| unreachable!()) = ch;
-        if positions.is_empty() {
-            break Some(letters);
+        *state.letters.get_mut(pos).unwrap_or_else(|| unreachable!()) = ch;
+        if state.positions.is_empty() {
+            break Some(state.letters);
         }
     }
 }
