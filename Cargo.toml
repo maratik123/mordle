@@ -2,7 +2,7 @@
 name = "mordle"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.68.2"
+rust-version = "1.69.0"
 
 [[bin]]
 name = "dict"
